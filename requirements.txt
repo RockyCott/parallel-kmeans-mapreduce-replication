@@ -1,0 +1,5 @@
+mrjob
+jupyter
+numpy
+scikit-learn
+matplotlib

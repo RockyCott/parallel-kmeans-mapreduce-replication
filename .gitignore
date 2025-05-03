@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv
+
+# Notebooks
+.ipynb_checkpoints
+
+# Datasets
+data/*.csv
+
+# mrjob temp
+*.mrjob.local
+
+venv
