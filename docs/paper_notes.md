@@ -74,3 +74,61 @@ En este articulo proponen que se diseñen algoritmos paralelos que estén orient
 ---
 
 ## 2. Parallel K-Means Algorithm Based on MapReduce
+
+- Se explica como funciona el algoritmo K-Means con MapReduce.
+- K-Means
+  - Es un algoritmo de agrupamiento
+  - Inicio aleatorio: Elegir k puntos iniciales al azar. Estos serán los centros iniciales de los grupos.
+  - Asignación: Para cada punto del conjunto de datos, se calcula a qué centro está más cerca (por distancia Euclideana). Se asigna a ese grupo.
+  - Reajuste: Una vez todos los puntos están agrupados, se calcula el nuevo “centro” de cada grupo (el promedio de los puntos que contiene).
+  - Repetición: Repetís los dos anteriores hasta que los centros dejen de moverse significativamente (es decir, el algoritmo converge).
+
+En cada iteración, se debe medir la distancia entre cada uno de los `n` puntos y los `k` centros. Eso da `n * k` cálculos. Si se tiene 1 millón de puntos y 10 grupos, son 10 millones de distancias por iteración.
+Sin embargo, cada comparación de un punto con un centro es independiente de los demás, así que se puede hacer en paralelo con MapReduce.
+
+- `MapReduce` divide la carga de trabajo del algoritmo
+  - `Map`: Para cada dato, se calcula a qué centro pertenece.
+  - `Combine`: Suma localmente los puntos de cada grupo, para reducir tráfico en la red (opcional).
+  - `Reduce`: Calcula los nuevos centros a partir de las sumas parciales de todos los nodos.
+
+- `Map Function` (asignación de puntos a centros)
+  - Cada nodo recibe una parte del dataset y una copia de los centros actuales. Para cada punto:
+    - Calcula la distancia a cada centro.
+    - Encuentra el centro más cercano.
+    - `Devuelve un par`: `<índice del centro más cercano, información del punto>`.
+  - Ejemplo:
+    - Suponer que se tiene los puntos `A`, `B` y `C` y los centros `X1`, `X2`, `X3`.
+    - El nodo mapea:
+      - `A` está más cerca de `X1` → `<X1, A>`
+      - `B` está más cerca de `X2` → `<X2, B>`
+      - `C` está más cerca de `X1` → `<X1, C>`
+
+- `Combine Function` (suma parcial de datos)
+  - Antes de enviar los datos al nodo de reducción, cada nodo suma los valores de los puntos asignados al mismo centro dentro de sí mismo.
+  - También cuenta cuántos puntos se asignaron a ese centro.
+  - Ejemplo:
+  - Si un nodo tiene `<X1, A>` y `<X1, C>`, y `A` y `C` tienen coordenadas
+    - A = (1, 2), C = (3, 4)
+    - Suma = (1+3, 2+4) = (4, 6)
+    - Número de puntos = 2
+  - Envía: `<X1, [(4, 6), 2]>`
+  - Así se reduce el tamaño de la información que va por la red.
+
+- `Reduce Function` (cálculo de nuevos centros)
+  - Recibe todas las sumas parciales de todos los nodos para un mismo centro, y las junta para calcular el nuevo centro promedio.
+  - Ejemplo:
+  - Suponer que desde dos nodos diferentes se recibe:
+    - `<X1, [(4, 6), 2]>`
+    - `<X1, [(6, 8), 3]>`
+  - Entonces:
+    - Suma total: (4+6, 6+8) = (10, 14)
+    - Número total: 2 + 3 = 5
+    - Nuevo centro = (10/5, 14/5) = (2.0, 2.8)
+  - Este nuevo centro se usará en la siguiente iteración del algoritmo.
+
+- Resumen
+  - `Map`: Asigna puntos a centros → `<centro, punto>`
+  - `Combine`: Suma local en el nodo → `<centro, suma_local, cantidad_local>`
+  - `Reduce`: Suma global → `<centro, nuevo_centro>`
+
+Este ciclo se repite hasta que los centros cambian muy poco.

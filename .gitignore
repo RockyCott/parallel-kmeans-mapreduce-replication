@@ -15,3 +15,8 @@ data/*.csv
 *.mrjob.local
 
 venv
+
+venv/
+__pycache__/
+*.pyc
+*.pkl
